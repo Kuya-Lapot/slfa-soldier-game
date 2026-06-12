@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Soldier Game</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; background: #111; overflow: hidden; font-family: 'Courier New', monospace; }
+  #phaser-parent {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 1;
+  }
+  canvas { display: block; image-rendering: pixelated; }
+  #mobile-controls {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 12px 20px 20px;
+    pointer-events: none;
+    z-index: 10;
+    display: none;
+  }
+  .ctrl-group { display: flex; gap: 10px; pointer-events: all; }
+  .ctrl-btn {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    border: 3px solid rgba(255,255,255,0.5);
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    font-size: 22px;
+    font-weight: bold;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+  }
+  .ctrl-btn:active { background: rgba(255,255,255,0.35); }
+</style>
+</head>
+<body>
+<div id="phaser-parent"></div>
+<div id="mobile-controls">
+  <div class="ctrl-group">
+    <div class="ctrl-btn" id="btn-left">◀</div>
+    <div class="ctrl-btn" id="btn-right">▶</div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
+<script>
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+const W = 360, H = 640;
+const isMobile = () => /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || window.innerWidth < 600;
+
+// ─── BOOT SCENE ──────────────────────────────────────────────────────────────
+class BootScene extends Phaser.Scene {
+  constructor() { super('Boot'); }
+  preload() {
+    // Attempt to load real PNG assets; fall back gracefully
+    this.load.on('loaderror', (file) => {
+      console.warn('Asset load error:', file.key, '— will use generated texture');
+    });
+    this.load.image('player',       'assets/player.png');
+    this.load.image('enemy_1',      'assets/enemies/enemy_1.png');
+    this.load.image('enemy_2',      'assets/enemies/enemy_2.png');
+    this.load.image('background',   'assets/background.png');
+    this.load.image('bullet',       'assets/bullet.png');
+    this.load.image('enemy_bullet', 'assets/enemy_bullet.png');
+
+    // Loading bar
+    const bar = this.add.graphics();
+    this.load.on('progress', (v) => {
+      bar.clear();
+      bar.fillStyle(0x333333);
+      bar.fillRect(40, H/2-12, W-80, 24);
+      bar.fillStyle(0xff8800);
+      bar.fillRect(42, H/2-10, (W-84)*v, 20);
+    });
+    this.load.on('complete', () => bar.destroy());
+
+    this.add.text(W/2, H/2-50, 'Loading...', {
+      fontSize: '20px', fill: '#ffffff', fontFamily: 'Courier New'
+    }).setOrigin(0.5);
+  }
+  create() {
+    // Ensure missing textures get generated replacements
+    ensureTextures(this);
+    this.scene.start('Game');
+  }
+}
+
+// ─── FALLBACK TEXTURE GENERATOR ──────────────────────────────────────────────
+function ensureTextures(scene) {
+  const tex = scene.textures;
+
+  if (!tex.exists('player') || tex.get('player').key === '__MISSING') {
+    const c = tex.createCanvas('player', 40, 56);
+    const ctx = c.getContext();
+    // Beret
+    ctx.fillStyle = '#222244';
+    ctx.fillRect(8, 2, 24, 12);
+    ctx.fillRect(6, 10, 28, 4);
+    // Head
+    ctx.fillStyle = '#F4C27F';
+    ctx.beginPath(); ctx.arc(20, 22, 8, 0, Math.PI*2); ctx.fill();
+    // Eyes
+    ctx.fillStyle = '#111';
+    ctx.fillRect(14,20,3,3); ctx.fillRect(23,20,3,3);
+    // Body
+    ctx.fillStyle = '#2E6EAA';
+    ctx.fillRect(10,30,20,16);
+    // Gun arm
+    ctx.fillRect(0,31,16,7);
+    ctx.fillStyle = '#888';
+    ctx.fillRect(0,32,14,3);
+    // Legs
+    ctx.fillStyle = '#1A4A7A';
+    ctx.fillRect(11,46,8,10); ctx.fillRect(21,46,8,10);
+    ctx.fillStyle = '#111';
+    ctx.fillRect(10,53,10,3); ctx.fillRect(20,53,10,3);
+    c.refresh();
+  }
+
+  if (!tex.exists('enemy_1') || tex.get('enemy_1').key === '__MISSING') {
+    const c = tex.createCanvas('enemy_1', 32, 32);
+    const ctx = c.getContext();
+    ctx.fillStyle = '#CC2222';
+    ctx.fillRect(6,4,20,18);
+    ctx.fillRect(4,6,24,14);
+    ctx.fillStyle = '#FFDD44';
+    ctx.beginPath(); ctx.arc(11,11,3,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(21,11,3,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.arc(11,11,1.5,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(21,11,1.5,0,Math.PI*2); ctx.fill();
+    ctx.fillRect(10,16,12,3);
+    ctx.fillStyle = '#881111';
+    ctx.fillRect(8,22,4,10); ctx.fillRect(20,22,4,10);
+    ctx.fillStyle = '#111';
+    ctx.fillRect(6,29,8,3); ctx.fillRect(18,29,8,3);
+    c.refresh();
+  }
+
+  if (!tex.exists('enemy_2') || tex.get('enemy_2').key === '__MISSING') {
+    const c = tex.createCanvas('enemy_2', 48, 52);
+    const ctx = c.getContext();
+    ctx.fillStyle = '#881111';
+    ctx.fillRect(16,0,3,10); ctx.fillRect(29,0,3,8);
+    ctx.fillStyle = '#FFDD44';
+    ctx.beginPath(); ctx.arc(17,0,3,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#FF8844';
+    ctx.beginPath(); ctx.arc(30,0,3,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#BB1111';
+    ctx.fillRect(5,12,38,24);
+    ctx.fillRect(8,10,32,4);
+    ctx.fillStyle = '#FFDD44';
+    ctx.beginPath(); ctx.arc(15,20,5,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(33,20,5,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.arc(15,20,3,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(33,20,3,0,Math.PI*2); ctx.fill();
+    ctx.fillRect(10,27,28,7);
+    ctx.fillStyle = '#FFDD44';
+    [13,18,27,32].forEach(x => ctx.fillRect(x,29,4,5));
+    ctx.fillStyle = '#770A0A';
+    [8,16,28,36].forEach(x => { ctx.fillRect(x,36,4,15); });
+    ctx.fillStyle = '#111';
+    [5,13,25,33].forEach(x => { ctx.fillRect(x,48,10,4); });
+    c.refresh();
+  }
+
+  if (!tex.exists('background') || tex.get('background').key === '__MISSING') {
+    const c = tex.createCanvas('background', W, H);
+    const ctx = c.getContext();
+    const grad = ctx.createLinearGradient(0,0,0,H*0.85);
+    grad.addColorStop(0, '#0a0e2a');
+    grad.addColorStop(0.5, '#0f1f44');
+    grad.addColorStop(1, '#1a2f5a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,W,H*0.85);
+    // Stars
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    for (let i = 0; i < 80; i++) {
+      const sx = Math.random()*W, sy = Math.random()*H*0.75;
+      const sr = Math.random() < 0.2 ? 1.5 : 0.8;
+      ctx.beginPath(); ctx.arc(sx,sy,sr,0,Math.PI*2); ctx.fill();
+    }
+    // Dark ground
+    ctx.fillStyle = '#1a3a10';
+    ctx.fillRect(0,H*0.85,W,H*0.15);
+    ctx.fillStyle = '#0e2208';
+    ctx.fillRect(0,H*0.85,W,H*0.03);
+    // Dark clouds (barely visible)
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    [[60,80,120,40],[280,120,140,50],[150,200,100,35]].forEach(([x,y,w,h]) => {
+      ctx.beginPath(); ctx.ellipse(x,y,w/2,h/2,0,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(x+20,y-8,w/3,h/2.5,0,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(x-20,y+5,w/3,h/3,0,0,Math.PI*2); ctx.fill();
+    });
+    c.refresh();
+  }
+
+  if (!tex.exists('bullet') || tex.get('bullet').key === '__MISSING') {
+    const c = tex.createCanvas('bullet', 6, 14);
+    const ctx = c.getContext();
+    ctx.fillStyle = '#FFEE22';
+    ctx.fillRect(1,2,4,12);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(2,2,2,3);
+    c.refresh();
+  }
+
+  if (!tex.exists('enemy_bullet') || tex.get('enemy_bullet').key === '__MISSING') {
+    const c = tex.createCanvas('enemy_bullet', 8, 10);
+    const ctx = c.getContext();
+    ctx.fillStyle = '#FF8800';
+    ctx.beginPath(); ctx.ellipse(4,5,3,5,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#FFCC44';
+    ctx.beginPath(); ctx.ellipse(4,4,2,2.5,0,0,Math.PI*2); ctx.fill();
+    c.refresh();
+  }
+}
+
+// ─── GAME SCENE ──────────────────────────────────────────────────────────────
+class GameScene extends Phaser.Scene {
+  constructor() { super('Game'); }
+
+  create() {
+    this.score     = 0;
+    this.lives     = 3;
+    this.wave      = 1;
+    this.gameOver  = false;
+    this.spawnDelay = 1500;
+
+    // Static background
+    this.add.image(W/2, H/2, 'background').setDisplaySize(W, H);
+
+    // Physics groups
+    this.enemies      = this.physics.add.group();
+    this.bullets      = this.physics.add.group();
+    this.enemyBullets = this.physics.add.group();
+    this.particles    = this.add.group();
+
+    // Player
+    this.player = this.physics.add.sprite(W/2, H-80, 'player')
+      .setCollideWorldBounds(true)
+      .setDepth(5);
+    this.player.hp = 3;
+
+    // Lives display (hearts)
+    this.livesText = this.add.text(8, 8, '❤️❤️❤️', { fontSize: '18px' }).setDepth(10);
+    this.scoreText = this.add.text(W/2, 8, 'SCORE: 0', {
+      fontSize: '16px', fill: '#ffffff', stroke: '#000000', strokeThickness: 3,
+      fontFamily: 'Courier New'
+    }).setOrigin(0.5,0).setDepth(10);
+    this.waveText = this.add.text(W-8, 8, 'WAVE 1', {
+      fontSize: '14px', fill: '#ffee44', stroke: '#000', strokeThickness: 2,
+      fontFamily: 'Courier New'
+    }).setOrigin(1,0).setDepth(10);
+
+    // Controls
+    this.cursors = this.input.keyboard.createCursorKeys();
+    this.wasd    = this.input.keyboard.addKeys({ left: 'A', right: 'D' });
+
+    // Auto-fire
+    this.time.addEvent({ delay: 280, callback: this.fireBullet, callbackScope: this, loop: true });
+
+    // Enemy spawn timer
+    this.spawnTimer = this.time.addEvent({
+      delay: this.spawnDelay,
+      callback: this.spawnEnemy,
+      callbackScope: this,
+      loop: true
+    });
+
+    // Collisions
+    this.physics.add.overlap(this.bullets, this.enemies, this.hitEnemy, null, this);
+    this.physics.add.overlap(this.enemyBullets, this.player, this.playerHitByBullet, null, this);
+    this.physics.add.overlap(this.enemies, this.player, this.playerHitByEnemy, null, this);
+
+    // Mobile controls state
+    this.mobileLeft  = false;
+    this.mobileRight = false;
+
+    this.setupMobileControls();
+
+    // Wave progression
+    this.time.addEvent({ delay: 15000, callback: this.nextWave, callbackScope: this, loop: true });
+  }
+
+  setupMobileControls() {
+    const mc = document.getElementById('mobile-controls');
+    if (isMobile() || window.innerWidth <= 768) mc.style.display = 'flex';
+
+    const track = (id, setter) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('touchstart', e => { e.preventDefault(); setter(true); }, { passive: false });
+      el.addEventListener('touchend',   e => { e.preventDefault(); setter(false); }, { passive: false });
+      el.addEventListener('mousedown',  e => setter(true));
+      el.addEventListener('mouseup',    e => setter(false));
+      el.addEventListener('mouseleave', e => setter(false));
+    };
+    track('btn-left',  v => this.mobileLeft  = v);
+    track('btn-right', v => this.mobileRight = v);
+
+    // Also show controls on small screens regardless
+    const resizeCheck = () => {
+      mc.style.display = (window.innerWidth < 900) ? 'flex' : 'none';
+    };
+    window.addEventListener('resize', resizeCheck);
+    resizeCheck();
+  }
+
+  update(time) {
+    if (this.gameOver) return;
+
+    // Player movement
+    const left  = this.cursors.left.isDown  || this.wasd.left.isDown  || this.mobileLeft;
+    const right = this.cursors.right.isDown || this.wasd.right.isDown || this.mobileRight;
+
+    this.player.setVelocityX(0);
+    if (left)  this.player.setVelocityX(-220);
+    if (right) this.player.setVelocityX(220);
+
+    // Clean off-screen bullets
+    this.bullets.getChildren().forEach(b => { if (b.y < -20) b.destroy(); });
+    this.enemyBullets.getChildren().forEach(b => { if (b.y > H+20) b.destroy(); });
+    this.enemies.getChildren().forEach(e => {
+      if (e.y > H + 60) {
+        e.destroy();
+        this.loseLife();
+      }
+    });
+
+    // Enemy zigzag for enemy_2
+    this.enemies.getChildren().forEach(e => {
+      if (e.eType === 2) {
+        e.zigPhase = (e.zigPhase || 0) + 0.04;
+        e.setVelocityX(Math.sin(e.zigPhase) * 80);
+      }
+    });
+
+    // Particle update
+    this.particles.getChildren().forEach(p => {
+      p.lifespan -= 16;
+      p.setAlpha(p.lifespan / p.maxLife);
+      if (p.lifespan <= 0) p.destroy();
+    });
+  }
+
+  fireBullet() {
+    if (this.gameOver || !this.player.active) return;
+    const b = this.bullets.create(this.player.x, this.player.y - 28, 'bullet');
+    b.setVelocityY(-500).setDepth(4);
+  }
+
+  spawnEnemy() {
+    if (this.gameOver) return;
+    const useType2 = this.wave >= 2 && Math.random() < 0.35;
+    const key   = useType2 ? 'enemy_2' : 'enemy_1';
+    const eType = useType2 ? 2 : 1;
+    const margin = useType2 ? 30 : 20;
+    const x = Phaser.Math.Between(margin, W - margin);
+    const e = this.enemies.create(x, -40, key).setDepth(3);
+    e.eType   = eType;
+    e.hp      = useType2 ? 3 : 1;
+    e.zigPhase = Math.random() * Math.PI * 2;
+    const speed = 55 + this.wave * 8 + Math.random() * 20;
+    e.setVelocityY(speed);
+
+    // Enemy 2 shoots after wave 1
+    if (useType2 && this.wave >= 2) {
+      this.time.addEvent({
+        delay: 1200 + Math.random() * 800,
+        callback: () => { if (e.active) this.fireEnemyBullet(e); },
+        loop: true
+      });
+    }
+  }
+
+  fireEnemyBullet(enemy) {
+    if (!enemy.active || this.gameOver) return;
+    const b = this.enemyBullets.create(enemy.x, enemy.y + 20, 'enemy_bullet');
+    b.setVelocityY(180).setDepth(4);
+  }
+
+  hitEnemy(bullet, enemy) {
+    bullet.destroy();
+    this.spawnExplosion(enemy.x, enemy.y, 0.6);
+    enemy.hp--;
+    if (enemy.hp <= 0) {
+      this.spawnExplosion(enemy.x, enemy.y, 1.0);
+      const pts = enemy.eType === 2 ? 30 : 10;
+      this.score += pts;
+      this.scoreText.setText('SCORE: ' + this.score);
+      // Pop score text
+      const popup = this.add.text(enemy.x, enemy.y, '+' + pts, {
+        fontSize: '16px', fill: '#ffee44', stroke: '#000', strokeThickness: 2,
+        fontFamily: 'Courier New'
+      }).setOrigin(0.5).setDepth(9);
+      this.tweens.add({ targets: popup, y: enemy.y - 40, alpha: 0, duration: 700, onComplete: () => popup.destroy() });
+      enemy.destroy();
+    } else {
+      // Flash red
+      this.tweens.add({ targets: enemy, alpha: 0.3, duration: 60, yoyo: true });
+    }
+  }
+
+  playerHitByBullet(player, bullet) {
+    bullet.destroy();
+    this.playerHit();
+  }
+
+  playerHitByEnemy(player, enemy) {
+    enemy.destroy();
+    this.spawnExplosion(enemy.x, enemy.y, 0.8);
+    this.playerHit();
+  }
+
+  playerHit() {
+    if (this.player.invincible) return;
+    this.player.invincible = true;
+    this.cameras.main.shake(200, 0.01);
+    this.spawnExplosion(this.player.x, this.player.y, 0.7);
+    this.player.hp--;
+    this.updateLivesDisplay();
+    if (this.player.hp <= 0) {
+      this.triggerGameOver();
+      return;
+    }
+    // Invincibility flash
+    this.tweens.add({
+      targets: this.player, alpha: 0.3, duration: 100,
+      yoyo: true, repeat: 8,
+      onComplete: () => { this.player.setAlpha(1); this.player.invincible = false; }
+    });
+  }
+
+  loseLife() {
+    this.player.hp--;
+    this.updateLivesDisplay();
+    this.cameras.main.shake(150, 0.008);
+    if (this.player.hp <= 0) this.triggerGameOver();
+  }
+
+  updateLivesDisplay() {
+    const hp = Math.max(0, this.player.hp);
+    this.livesText.setText('❤️'.repeat(hp) + '🖤'.repeat(3 - hp));
+  }
+
+  spawnExplosion(x, y, scale) {
+    const colors = [0xff6600, 0xffaa00, 0xffee44, 0xffffff];
+    for (let i = 0; i < 8; i++) {
+      const px = this.add.circle(x, y, (3 + Math.random() * 4) * scale, Phaser.Utils.Array.GetRandom(colors))
+        .setDepth(8);
+      px.maxLife = px.lifespan = 300 + Math.random() * 300;
+      const angle = Math.random() * Math.PI * 2;
+      const speed = (50 + Math.random() * 120) * scale;
+      this.tweens.add({
+        targets: px,
+        x: px.x + Math.cos(angle) * speed,
+        y: px.y + Math.sin(angle) * speed,
+        alpha: 0, scaleX: 0.1, scaleY: 0.1,
+        duration: px.maxLife,
+        ease: 'Power2',
+        onComplete: () => px.destroy()
+      });
+      this.particles.add(px);
+    }
+    // Boom text flash
+    const boom = this.add.text(x, y - 10, 'BOOM!', {
+      fontSize: Math.floor(14 * scale) + 'px',
+      fill: '#ffee44', stroke: '#cc4400', strokeThickness: 2,
+      fontFamily: 'Courier New'
+    }).setOrigin(0.5).setDepth(9);
+    this.tweens.add({ targets: boom, y: y - 50, alpha: 0, scaleX: 1.5, scaleY: 1.5, duration: 500, onComplete: () => boom.destroy() });
+  }
+
+  nextWave() {
+    if (this.gameOver) return;
+    this.wave++;
+    this.waveText.setText('WAVE ' + this.wave);
+    this.spawnDelay = Math.max(600, this.spawnDelay - 100);
+    this.spawnTimer.reset({ delay: this.spawnDelay, callback: this.spawnEnemy, callbackScope: this, loop: true });
+    const waveMsg = this.add.text(W/2, H/2, 'WAVE ' + this.wave + '!', {
+      fontSize: '36px', fill: '#ffee44', stroke: '#000', strokeThickness: 4,
+      fontFamily: 'Courier New'
+    }).setOrigin(0.5).setDepth(20);
+    this.tweens.add({ targets: waveMsg, alpha: 0, scaleX: 2, scaleY: 2, duration: 1200, onComplete: () => waveMsg.destroy() });
+  }
+
+  triggerGameOver() {
+    this.gameOver = true;
+    this.spawnTimer.remove();
+    this.player.setVelocity(0);
+    this.player.setActive(false).setVisible(false);
+    this.enemies.clear(true, true);
+    this.bullets.clear(true, true);
+    this.enemyBullets.clear(true, true);
+    this.spawnExplosion(this.player.x, this.player.y, 1.5);
+
+    // Darken overlay
+    const overlay = this.add.rectangle(W/2, H/2, W, H, 0x000000, 0.65).setDepth(15);
+    this.tweens.add({ targets: overlay, alpha: 0.65, duration: 500 });
+
+    this.add.text(W/2, H/2 - 100, 'GAME OVER', {
+      fontSize: '40px', fill: '#ff4444', stroke: '#000', strokeThickness: 5,
+      fontFamily: 'Courier New'
+    }).setOrigin(0.5).setDepth(20);
+
+    this.add.text(W/2, H/2 - 30, 'SCORE: ' + this.score, {
+      fontSize: '28px', fill: '#ffee44', stroke: '#000', strokeThickness: 3,
+      fontFamily: 'Courier New'
+    }).setOrigin(0.5).setDepth(20);
+
+    this.add.text(W/2, H/2 + 20, 'WAVE: ' + this.wave, {
+      fontSize: '20px', fill: '#aaddff', stroke: '#000', strokeThickness: 2,
+      fontFamily: 'Courier New'
+    }).setOrigin(0.5).setDepth(20);
+
+    // Restart button
+    const btn = this.add.text(W/2, H/2 + 90, '[ PLAY AGAIN ]', {
+      fontSize: '22px', fill: '#ffffff',
+      stroke: '#ff8800', strokeThickness: 3,
+      backgroundColor: '#333300',
+      padding: { x: 16, y: 10 },
+      fontFamily: 'Courier New'
+    }).setOrigin(0.5).setDepth(20).setInteractive({ useHandCursor: true });
+
+    btn.on('pointerover', () => btn.setStyle({ fill: '#ffee44' }));
+    btn.on('pointerout',  () => btn.setStyle({ fill: '#ffffff' }));
+    btn.on('pointerdown', () => {
+      document.getElementById('mobile-controls').style.display = 'none';
+      this.scene.restart();
+      setTimeout(() => {
+        const mc = document.getElementById('mobile-controls');
+        mc.style.display = (window.innerWidth < 900) ? 'flex' : 'none';
+      }, 100);
+    });
+
+    // Keyboard restart
+    this.input.keyboard.once('keydown-ENTER', () => this.scene.restart());
+    this.input.keyboard.once('keydown-R',     () => this.scene.restart());
+
+    this.add.text(W/2, H/2 + 140, 'Press ENTER or R to restart', {
+      fontSize: '13px', fill: '#aaaaaa', fontFamily: 'Courier New'
+    }).setOrigin(0.5).setDepth(20);
+  }
+}
+
+// ─── PHASER CONFIG ────────────────────────────────────────────────────────────
+const config = {
+  type: Phaser.AUTO,
+  width: W,
+  height: H,
+  backgroundColor: '#0a0e2a',
+  physics: {
+    default: 'arcade',
+    arcade: { gravity: { y: 0 }, debug: false }
+  },
+  scene: [BootScene, GameScene],
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+    parent: 'phaser-parent',
+  }
+};
+
+const game = new Phaser.Game(config);
+</script>
+</body>
+</html>

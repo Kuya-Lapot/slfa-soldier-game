@@ -1,0 +1,19 @@
+{
+  "playerCandidate": "blue soldier with beret holding gun, positioned bottom-center of drawing",
+  "enemyCandidates": [
+    "small red spider-alien with 2 legs and black dot eyes, top-left",
+    "large red monster with antennas, multiple legs, and evil face, center-top"
+  ],
+  "projectiles": "orange/gold bullet drops falling downward from enemies",
+  "effects": ["boom explosion clouds", "score indicator showing 100"],
+  "pickups": ["circular bomb/grenade icon bottom-right", "shield circle bottom-left"],
+  "sceneType": "2D vertical shooter",
+  "complexity": "simple",
+  "colorPalette": {
+    "player": "blue uniform, black beret, peach skin",
+    "enemy1": "dark red, black eyes",
+    "enemy2": "dark red, black face details",
+    "bullets": "orange/gold",
+    "background": "light blue/white"
+  }
+}

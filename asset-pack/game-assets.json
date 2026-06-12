@@ -1,0 +1,56 @@
+{
+  "player": {
+    "sprite": "/assets/player.png",
+    "width": 40,
+    "height": 56,
+    "movement": "left_right",
+    "canShoot": true,
+    "speed": 220,
+    "lives": 3
+  },
+  "enemies": [
+    {
+      "id": "enemy_1",
+      "sprite": "/assets/enemies/enemy_1.png",
+      "width": 32,
+      "height": 32,
+      "movement": "fall_down",
+      "speed": 60,
+      "hp": 1,
+      "score": 10,
+      "canShoot": false,
+      "spawnWeight": 0.6
+    },
+    {
+      "id": "enemy_2",
+      "sprite": "/assets/enemies/enemy_2.png",
+      "width": 48,
+      "height": 52,
+      "movement": "fall_down_zigzag",
+      "speed": 40,
+      "hp": 3,
+      "score": 30,
+      "canShoot": true,
+      "spawnWeight": 0.4
+    }
+  ],
+  "projectiles": {
+    "playerBullet": {
+      "sprite": "/assets/bullet.png",
+      "speed": 500,
+      "damage": 1
+    },
+    "enemyBullet": {
+      "sprite": "/assets/enemy_bullet.png",
+      "speed": 180,
+      "damage": 1
+    }
+  },
+  "background": "/assets/background.png",
+  "scene": {
+    "type": "vertical_shooter",
+    "scrollSpeed": 30,
+    "spawnInterval": 1500,
+    "difficultyRamp": 0.05
+  }
+}
