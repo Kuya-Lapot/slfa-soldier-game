@@ -17,15 +17,6 @@ class MainMenuScene extends Phaser.Scene {
   constructor() { super('MainMenu'); }
 
   create() {
-    // Restore the portrait canvas (Zombie Defense switches it to landscape)
-    if (this.scale.width !== 360 || this.scale.height !== 640) this.scale.setGameSize(360, 640);
-
-    // Hide any lingering shooter DOM buttons
-    ['btn-left','btn-right'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = 'none';
-    });
-
     const W = this.scale.width, H = this.scale.height;
 
     // ── Animated gradient background ──

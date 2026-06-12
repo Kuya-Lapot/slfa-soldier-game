@@ -10,25 +10,10 @@
   #phaser-parent { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
   canvas { display: block; image-rendering: pixelated; }
 
-  /* Shooter left/right DOM buttons — only visible during ShooterScene on narrow screens */
-  #btn-left, #btn-right {
-    position: fixed; bottom: 30px; z-index: 10; display: none;
-  }
-  #btn-left  { left: 16px; }
-  #btn-right { right: 16px; }
-  .ctrl-btn {
-    width: 64px; height: 64px; border-radius: 50%; border: none;
-    background: rgba(255,255,255,0.15); color: #fff; font-size: 22px; font-weight: bold;
-    user-select: none; -webkit-user-select: none; touch-action: none;
-    display: flex; align-items: center; justify-content: center; cursor: pointer;
-  }
-  .ctrl-btn:active { background: rgba(255,255,255,0.35); }
 </style>
 </head>
 <body>
 <div id="phaser-parent"></div>
-<div class="ctrl-btn" id="btn-left">◀</div>
-<div class="ctrl-btn" id="btn-right">▶</div>
 
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
 

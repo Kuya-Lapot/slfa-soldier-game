@@ -1,15 +1,14 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // ZOMBIE DEFENSE  (lane-based, Plants-vs-Zombies-inspired feel)
-// Landscape 960×540 canvas · player on left, zombies from right
-// (the scene resizes the shared game canvas on entry; MainMenu restores it)
+// Portrait 360×640 canvas · player on left, zombies from right
 // Character based on input/drawing2.jpg
 // (girl: orange hair, pink top, teal skirt, holding a gun)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const ZW = 960, ZH = 540;
+const ZW = 360, ZH = 640;
 const Z_LANES   = 5;
 const Z_LANE_TOP = 100;            // y where lanes begin (below HUD)
-const Z_LANE_H   = Math.floor((ZH - Z_LANE_TOP - 60) / Z_LANES); // ≈76px
+const Z_LANE_H   = Math.floor((ZH - Z_LANE_TOP - 60) / Z_LANES); // ≈96px
 const Z_PLAYER_X = 44;
 
 function zLaneY(i) { return Z_LANE_TOP + Z_LANE_H * i + Z_LANE_H / 2; }
@@ -300,9 +299,6 @@ class ZombieDefenseScene extends Phaser.Scene {
   constructor() { super('ZombieDefense'); }
 
   create() {
-    // switch the shared canvas to landscape (MainMenu restores portrait)
-    if (this.scale.width !== ZW || this.scale.height !== ZH) this.scale.setGameSize(ZW, ZH);
-
     ensureZombieTextures(this);
 
     this.score    = 0;
@@ -369,33 +365,33 @@ class ZombieDefenseScene extends Phaser.Scene {
       fontSize: '14px', fill: '#ffe14d', stroke: '#1c3a0a', strokeThickness: 4, fontFamily: 'Courier New'
     }).setOrigin(1, 0).setDepth(20);
 
-    const menuBtn = this.add.text(ZW / 2, ZH - 10, '☰ MENU', {
+    const menuBtn = this.add.text(ZW / 2, 30, '☰ MENU', {
       fontSize: '13px', fill: '#fff', backgroundColor: '#1c3a0a', padding: { x: 10, y: 5 }, fontFamily: 'Courier New'
-    }).setOrigin(0.5, 1).setDepth(20).setInteractive({ useHandCursor: true });
+    }).setOrigin(0.5, 0).setDepth(20).setInteractive({ useHandCursor: true });
     menuBtn.on('pointerover', () => menuBtn.setStyle({ fill: '#ffe14d' }));
     menuBtn.on('pointerout',  () => menuBtn.setStyle({ fill: '#fff' }));
     menuBtn.on('pointerdown', () => Hub.go(this, 'MainMenu'));
   }
 
-  // ── Controls: two large lane buttons side by side, bottom-left corner ──
+  // ── Controls: lane buttons at far left and far right, bottom ──
   createControls() {
-    this.makeLaneBtn(44,  ZH - 62, '▲', () => this.moveLane(-1));
-    this.makeLaneBtn(132, ZH - 62, '▼', () => this.moveLane(1));
+    this.makeLaneBtn(44,      ZH - 62, '▲', () => this.moveLane(-1));
+    this.makeLaneBtn(ZW - 44, ZH - 62, '▼', () => this.moveLane(1));
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keys    = this.input.keyboard.addKeys({ up: 'W', down: 'S' });
     this.input.keyboard.on('keydown-ESC', () => Hub.go(this, 'MainMenu'));
   }
 
   makeLaneBtn(x, y, label, cb) {
-    const bg = this.add.circle(x, y, 36, 0x1c3a0a, 0.60)
-      .setStrokeStyle(2.5, 0xffffff, 0.7).setDepth(21)
+    const bg = this.add.circle(x, y, 36, 0xffffff, 0)
+      .setStrokeStyle(2, 0xffffff, 0.35).setDepth(21)
       .setInteractive({ useHandCursor: true });
     const txt = this.add.text(x, y, label, {
       fontSize: '28px', fill: '#fff', fontFamily: 'Courier New'
-    }).setOrigin(0.5).setDepth(22);
+    }).setOrigin(0.5).setDepth(22).setAlpha(0.55);
 
-    bg.on('pointerdown', () => { bg.setFillStyle(0x4a8a22, 0.85); txt.setScale(0.84); cb(); });
-    const up = () => { bg.setFillStyle(0x1c3a0a, 0.60); txt.setScale(1); };
+    bg.on('pointerdown', () => { bg.setFillStyle(0xffffff, 0.18); txt.setAlpha(1); txt.setScale(0.84); cb(); });
+    const up = () => { bg.setFillStyle(0xffffff, 0); txt.setAlpha(0.55); txt.setScale(1); };
     bg.on('pointerup', up); bg.on('pointerout', up);
   }
 

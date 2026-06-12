@@ -198,32 +198,7 @@ function ensureTextures(scene) {
 }
 
 // ─── SHOOTER MOBILE CONTROLS (DOM buttons, bound once for all restarts) ─────
-const ShooterMobile = { left:false, right:false, enabled:false, bound:false };
-
-function refreshShooterButtons() {
-  const show = ShooterMobile.enabled && window.innerWidth < 900;
-  ['btn-left','btn-right'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = show ? 'flex' : 'none';
-  });
-}
-
-function bindShooterButtons() {
-  if (ShooterMobile.bound) return;
-  ShooterMobile.bound = true;
-  const track = (id, setter) => {
-    const el = document.getElementById(id); if (!el) return;
-    el.addEventListener('touchstart', e => { e.preventDefault(); setter(true);  }, { passive:false });
-    el.addEventListener('touchend',   e => { e.preventDefault(); setter(false); }, { passive:false });
-    el.addEventListener('touchcancel',e => { e.preventDefault(); setter(false); }, { passive:false });
-    el.addEventListener('mousedown',  () => setter(true));
-    el.addEventListener('mouseup',    () => setter(false));
-    el.addEventListener('mouseleave', () => setter(false));
-  };
-  track('btn-left',  v => ShooterMobile.left  = v);
-  track('btn-right', v => ShooterMobile.right = v);
-  window.addEventListener('resize', refreshShooterButtons);
-}
+const ShooterMobile = { left:false, right:false };
 
 // ─── SHOOTER SCENE ───────────────────────────────────────────────────────────
 class ShooterScene extends Phaser.Scene {
@@ -304,29 +279,33 @@ class ShooterScene extends Phaser.Scene {
       fontFamily:'Courier New', align:'right'
     }).setOrigin(1,0).setDepth(10);
 
+    // ☰ MENU button — top-centre, below score
+    const menuBtn = this.add.text(W/2, 30, '☰ MENU', {
+      fontSize:'13px', fill:'#fff', backgroundColor:'#1c3a0a',
+      padding:{ x:10, y:5 }, fontFamily:'Courier New'
+    }).setOrigin(0.5, 0).setDepth(20).setInteractive({ useHandCursor:true });
+    menuBtn.on('pointerover',  () => menuBtn.setStyle({ fill:'#ffe14d' }));
+    menuBtn.on('pointerout',   () => menuBtn.setStyle({ fill:'#fff' }));
+    menuBtn.on('pointerdown',  () => Hub.go(this, 'MainMenu'));
+
     // Bomb HUD — bottom-centre, interactive (tap = use bomb)
-    this.bombHud = this.add.text(W/2, H-52, 'BOMB: ●●○', {
+    this.bombHud = this.add.text(W/2, H-10, 'BOMB: ●●○', {
       fontSize:'12px', fill:'#ff8844', stroke:'#000', strokeThickness:2, fontFamily:'Courier New',
       backgroundColor:'#220000', padding:{ x:6, y:4 }
-    }).setOrigin(0.5, 0).setDepth(12).setInteractive({ useHandCursor:true });
+    }).setOrigin(0.5, 1).setDepth(12).setInteractive({ useHandCursor:true });
     this.bombHud.on('pointerdown', () => this.useBomb());
     this.updateBombHud();
 
     // Boss HP bar (bottom-centre, above bomb hud)
-    this.bossBarBg   = this.add.rectangle(W/2, H-72, W-20, 13, 0x222222).setDepth(12).setVisible(false);
-    this.bossBarFill = this.add.rectangle(10, H-72, W-20, 11, 0x22cc22).setOrigin(0,0.5).setDepth(13).setVisible(false);
-    this.bossLabel   = this.add.text(W/2, H-90, 'BOSS', {
+    this.bossBarBg   = this.add.rectangle(W/2, H-32, W-20, 13, 0x222222).setDepth(12).setVisible(false);
+    this.bossBarFill = this.add.rectangle(10, H-32, W-20, 11, 0x22cc22).setOrigin(0,0.5).setDepth(13).setVisible(false);
+    this.bossLabel   = this.add.text(W/2, H-50, 'BOSS', {
       fontSize:'11px', fill:'#ff8888', stroke:'#000', strokeThickness:2, fontFamily:'Courier New'
     }).setOrigin(0.5).setDepth(12).setVisible(false);
 
-    // ☰ MENU button — bottom-right corner
-    const menuBtn = this.add.text(W - 8, H - 10, '☰ MENU', {
-      fontSize:'13px', fill:'#fff', backgroundColor:'#1c3a0a',
-      padding:{ x:10, y:5 }, fontFamily:'Courier New'
-    }).setOrigin(1, 1).setDepth(20).setInteractive({ useHandCursor:true });
-    menuBtn.on('pointerover',  () => menuBtn.setStyle({ fill:'#ffe14d' }));
-    menuBtn.on('pointerout',   () => menuBtn.setStyle({ fill:'#fff' }));
-    menuBtn.on('pointerdown',  () => Hub.go(this, 'MainMenu'));
+    // ── Move buttons — far left / far right, matching zombie style ──
+    this.makeShooterBtn(44,    H - 62, '◀', v => ShooterMobile.left  = v);
+    this.makeShooterBtn(W - 44, H - 62, '▶', v => ShooterMobile.right = v);
 
     // Controls
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -362,15 +341,21 @@ class ShooterScene extends Phaser.Scene {
   }
 
   setupMobileControls() {
-    bindShooterButtons();
-    ShooterMobile.enabled = true;
     ShooterMobile.left = false;
     ShooterMobile.right = false;
-    refreshShooterButtons();
-    this.events.once('shutdown', () => {
-      ShooterMobile.enabled = false;
-      refreshShooterButtons();
-    });
+  }
+
+  makeShooterBtn(x, y, label, setter) {
+    const bg = this.add.circle(x, y, 36, 0xffffff, 0)
+      .setStrokeStyle(2, 0xffffff, 0.35).setDepth(21)
+      .setInteractive({ useHandCursor: true });
+    const txt = this.add.text(x, y, label, {
+      fontSize: '28px', fill: '#fff', fontFamily: 'Courier New'
+    }).setOrigin(0.5).setDepth(22).setAlpha(0.55);
+
+    bg.on('pointerdown', () => { bg.setFillStyle(0xffffff, 0.18); txt.setAlpha(1); txt.setScale(0.84); setter(true); });
+    const up = () => { bg.setFillStyle(0xffffff, 0); txt.setAlpha(0.55); txt.setScale(1); setter(false); };
+    bg.on('pointerup', up); bg.on('pointerout', up);
   }
 
   update() {
