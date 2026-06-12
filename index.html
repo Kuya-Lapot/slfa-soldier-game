@@ -14,24 +14,21 @@
     z-index: 1;
   }
   canvas { display: block; image-rendering: pixelated; }
-  #mobile-controls {
+  #mobile-controls { display: none; }
+  #btn-left, #btn-right {
     position: fixed;
-    bottom: 0; left: 0; right: 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    padding: 12px 20px 20px;
-    pointer-events: none;
+    bottom: 30px;
     z-index: 10;
     display: none;
   }
-  .ctrl-group { display: flex; gap: 10px; pointer-events: all; }
+  #btn-left  { left: 16px; }
+  #btn-right { right: 16px; }
   .ctrl-btn {
     width: 64px; height: 64px;
     border-radius: 50%;
-    border: 3px solid rgba(255,255,255,0.5);
-    background: rgba(255,255,255,0.15);
-    color: #fff;
+    border: none;
+    background: transparent;
+    color: transparent;
     font-size: 22px;
     font-weight: bold;
     user-select: none;
@@ -41,19 +38,14 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    backdrop-filter: blur(4px);
   }
-  .ctrl-btn:active { background: rgba(255,255,255,0.35); }
+  .ctrl-btn:active { background: transparent; }
 </style>
 </head>
 <body>
 <div id="phaser-parent"></div>
-<div id="mobile-controls">
-  <div class="ctrl-group">
-    <div class="ctrl-btn" id="btn-left">◀</div>
-    <div class="ctrl-btn" id="btn-right">▶</div>
-  </div>
-</div>
+<div class="ctrl-btn" id="btn-left">◀</div>
+<div class="ctrl-btn" id="btn-right">▶</div>
 
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
 <script>
@@ -298,14 +290,12 @@ class GameScene extends Phaser.Scene {
   }
 
   setupMobileControls() {
-    const mc = document.getElementById('mobile-controls');
-    if (isMobile() || window.innerWidth <= 768) mc.style.display = 'flex';
-
     const track = (id, setter) => {
       const el = document.getElementById(id);
       if (!el) return;
       el.addEventListener('touchstart', e => { e.preventDefault(); setter(true); }, { passive: false });
       el.addEventListener('touchend',   e => { e.preventDefault(); setter(false); }, { passive: false });
+      el.addEventListener('touchcancel',e => { e.preventDefault(); setter(false); }, { passive: false });
       el.addEventListener('mousedown',  e => setter(true));
       el.addEventListener('mouseup',    e => setter(false));
       el.addEventListener('mouseleave', e => setter(false));
@@ -313,12 +303,14 @@ class GameScene extends Phaser.Scene {
     track('btn-left',  v => this.mobileLeft  = v);
     track('btn-right', v => this.mobileRight = v);
 
-    // Also show controls on small screens regardless
-    const resizeCheck = () => {
-      mc.style.display = (window.innerWidth < 900) ? 'flex' : 'none';
+    const showButtons = () => {
+      const show = window.innerWidth < 900;
+      ['btn-left','btn-right'].forEach(id => {
+        document.getElementById(id).style.display = show ? 'flex' : 'none';
+      });
     };
-    window.addEventListener('resize', resizeCheck);
-    resizeCheck();
+    window.addEventListener('resize', showButtons);
+    showButtons();
   }
 
   update(time) {
@@ -540,12 +532,7 @@ class GameScene extends Phaser.Scene {
     btn.on('pointerover', () => btn.setStyle({ fill: '#ffee44' }));
     btn.on('pointerout',  () => btn.setStyle({ fill: '#ffffff' }));
     btn.on('pointerdown', () => {
-      document.getElementById('mobile-controls').style.display = 'none';
       this.scene.restart();
-      setTimeout(() => {
-        const mc = document.getElementById('mobile-controls');
-        mc.style.display = (window.innerWidth < 900) ? 'flex' : 'none';
-      }, 100);
     });
 
     // Keyboard restart
